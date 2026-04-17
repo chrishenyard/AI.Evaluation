@@ -27,6 +27,7 @@ internal static class ServiceCollectionExtensions
             case ServiceTypes.OpenAI:
                 serviceCollection = serviceCollection.AddOpenAIChatCompletion(
                     kernelSettings.ModelId,
+                    new Uri(kernelSettings.Endpoint),
                     kernelSettings.ApiKey,
                     kernelSettings.OrgId,
                     kernelSettings.ServiceId);

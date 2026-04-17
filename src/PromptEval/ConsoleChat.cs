@@ -2,6 +2,7 @@
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Text;
 
 namespace PromptEval;
 
@@ -35,49 +36,69 @@ internal class ConsoleChat(Kernel kernel, IHostApplicationLifetime lifeTime) : I
     private async Task ExecuteAsync(CancellationToken cancellationToken)
     {
         ChatHistory chatMessages = [];
+        chatMessages.AddSystemMessage("Reply in plain natural language. Do not output JSON unless explicitly requested.");
+
         IChatCompletionService chatCompletionService = _kernel.GetRequiredService<IChatCompletionService>();
 
         // Loop till we are cancelled
         while (!cancellationToken.IsCancellationRequested)
         {
-            // Get user input
-            Console.Write("User > ");
-            chatMessages.AddUserMessage(Console.ReadLine()!);
-
-            // Get the chat completions
-            OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
+            try
             {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
-            };
+                // Get user input
+                Console.Write("User > ");
+                var userInput = Console.ReadLine();
 
-            IAsyncEnumerable<StreamingChatMessageContent> result =
-                chatCompletionService.GetStreamingChatMessageContentsAsync(
-                    chatMessages,
-                    executionSettings: openAIPromptExecutionSettings,
-                    kernel: _kernel,
-                    cancellationToken: cancellationToken);
-
-            // Print the chat completions
-            ChatMessageContent? chatMessageContent = null;
-            await foreach (var content in result)
-            {
-                if (content.Role.HasValue)
+                if (string.IsNullOrWhiteSpace(userInput))
                 {
-                    Console.Write("Assistant > ");
-                    chatMessageContent = new(
-                        content.Role ?? AuthorRole.Assistant,
-                        content.ModelId!,
-                        content.Content!,
-                        content.InnerContent,
-                        content.Encoding,
-                        content.Metadata
-                    );
+                    continue;
                 }
-                Console.Write(content.Content);
-                chatMessageContent!.Content += content.Content;
-                chatMessages.Add(chatMessageContent);
+
+                chatMessages.AddUserMessage(userInput);
+
+                // Get the chat completions
+                OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
+                {
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.None()
+                };
+
+                IAsyncEnumerable<StreamingChatMessageContent> result =
+                    chatCompletionService.GetStreamingChatMessageContentsAsync(
+                        chatMessages,
+                        executionSettings: null,
+                        kernel: _kernel,
+                        cancellationToken: cancellationToken);
+
+                // Print and collect a single assistant message
+                var assistantText = new StringBuilder();
+                var printedPrefix = false;
+
+                await foreach (var content in result.WithCancellation(cancellationToken))
+                {
+                    if (!printedPrefix && content.Role.HasValue)
+                    {
+                        Console.Write("Assistant > ");
+                        printedPrefix = true;
+                    }
+
+                    if (!string.IsNullOrEmpty(content.Content))
+                    {
+                        Console.Write(content.Content);
+                        assistantText.Append(content.Content);
+                    }
+                }
+
+                Console.WriteLine();
+
+                if (assistantText.Length > 0)
+                {
+                    chatMessages.AddAssistantMessage(assistantText.ToString());
+                }
             }
-            Console.WriteLine();
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
         }
     }
 }

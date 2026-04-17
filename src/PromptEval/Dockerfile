@@ -5,15 +5,21 @@ FROM mcr.microsoft.com/dotnet/runtime:10.0 AS base
 USER $APP_UID
 WORKDIR /app
 
+ARG AUTHORS
+ARG VERSION
+ARG TITLE
+ARG DESCRIPTION
+ARG BUILD_DATE
 
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["PromptEval.csproj", "."]
-RUN dotnet restore "./PromptEval.csproj"
+COPY ["Directory.Packages.props", "."]
+COPY ["PromptEval/PromptEval.csproj", "PromptEval/"]
+RUN dotnet restore "./PromptEval/PromptEval.csproj"
 COPY . .
-WORKDIR "/src/."
+WORKDIR "/src/PromptEval"
 RUN dotnet build "./PromptEval.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage

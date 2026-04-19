@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Spectre.Console;
 using System.Text;
 
 namespace PromptEval;
@@ -20,9 +21,14 @@ internal sealed class ConsoleChat(
     private readonly IHostApplicationLifetime _lifeTime = lifeTime;
     private readonly ILogger<ConsoleChat> _logger = logger;
 
+    private static readonly Style UserStyle = new(Color.Cyan1);
+    private static readonly Style AssistantStyle = new(Color.SpringGreen3);
+    private static readonly Style BannerStyle = new(Color.Grey);
+    private static readonly Style InfoStyle = new(Color.Yellow);
+
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _ = Task.Run(() => ExecuteAsync(cancellationToken), cancellationToken);
+        _ = Task.Run(() => ExecuteWithSpinnerAsync(cancellationToken), cancellationToken);
         return Task.CompletedTask;
     }
 
@@ -32,7 +38,7 @@ internal sealed class ConsoleChat(
         return Task.CompletedTask;
     }
 
-    private async Task ExecuteAsync(CancellationToken cancellationToken)
+    private async Task ExecuteWithSpinnerAsync(CancellationToken cancellationToken)
     {
         var chatMessages = new ChatHistory();
         chatMessages.AddSystemMessage("Reply in plain natural language. Do not output JSON unless explicitly requested.");
@@ -45,8 +51,8 @@ internal sealed class ConsoleChat(
         {
             try
             {
-                Console.WriteLine();
-                Console.Write("User > ");
+                AnsiConsole.WriteLine();
+                AnsiConsole.Write(new Markup("[bold cyan]User > [/]"));
 
                 var userInput = Console.ReadLine();
 
@@ -65,45 +71,68 @@ internal sealed class ConsoleChat(
                 if (IsExitCommand(userInput))
                 {
                     _logger.LogInformation("User requested application shutdown.");
-                    Console.WriteLine("Goodbye.");
+                    AnsiConsole.MarkupLine("[grey]Goodbye.[/]");
                     _lifeTime.StopApplication();
                     break;
                 }
 
                 chatMessages.AddUserMessage(userInput);
 
-                Console.Write("Assistant > ");
-
                 var assistantText = new StringBuilder();
-                var wroteAnyContent = false;
+                string? firstChunk = null;
 
-                await foreach (var content in chatCompletionService
+                await using var enumerator = chatCompletionService
                     .GetStreamingChatMessageContentsAsync(
                         chatMessages,
                         executionSettings: null,
                         kernel: _kernel,
                         cancellationToken: cancellationToken)
-                    .WithCancellation(cancellationToken))
-                {
-                    if (string.IsNullOrEmpty(content.Content))
+                    .GetAsyncEnumerator(cancellationToken);
+
+                await AnsiConsole.Status()
+                    .Spinner(Spinner.Known.Dots)
+                    .SpinnerStyle(Style.Parse("yellow"))
+                    .StartAsync("[yellow]Assistant is thinking...[/]", async _ =>
                     {
-                        continue;
+                        while (await enumerator.MoveNextAsync())
+                        {
+                            var content = enumerator.Current;
+
+                            if (!string.IsNullOrWhiteSpace(content.Content))
+                            {
+                                firstChunk = content.Content;
+                                break;
+                            }
+                        }
+                    });
+
+                AnsiConsole.Write(new Markup("[bold springgreen3]Assistant > [/]"));
+
+                if (!string.IsNullOrEmpty(firstChunk))
+                {
+                    AnsiConsole.Write(new Text(firstChunk, AssistantStyle));
+                    assistantText.Append(firstChunk);
+
+                    while (await enumerator.MoveNextAsync())
+                    {
+                        var content = enumerator.Current;
+
+                        if (string.IsNullOrWhiteSpace(content.Content))
+                        {
+                            continue;
+                        }
+
+                        AnsiConsole.Write(new Text(content.Content, AssistantStyle));
+                        assistantText.Append(content.Content);
                     }
 
-                    Console.Write(content.Content);
-                    assistantText.Append(content.Content);
-                    wroteAnyContent = true;
-                }
-
-                Console.WriteLine();
-
-                if (assistantText.Length > 0)
-                {
+                    AnsiConsole.WriteLine();
                     chatMessages.AddAssistantMessage(assistantText.ToString());
                 }
-                else if (!wroteAnyContent)
+                else
                 {
-                    Console.WriteLine("(No response)");
+                    AnsiConsole.Write(new Text("(No response)", InfoStyle));
+                    AnsiConsole.WriteLine();
                     _logger.LogWarning("The assistant returned no content.");
                 }
             }
@@ -114,8 +143,11 @@ internal sealed class ConsoleChat(
             }
             catch (Exception ex)
             {
-                Console.WriteLine();
-                Console.WriteLine("Assistant > Sorry, something went wrong.");
+                AnsiConsole.WriteLine();
+                AnsiConsole.Write(new Markup("[bold springgreen3]Assistant > [/]"));
+                AnsiConsole.Write(new Text("Sorry, something went wrong.", AssistantStyle));
+                AnsiConsole.WriteLine();
+
                 _logger.LogError(ex, "Unhandled exception in chat loop.");
             }
         }
@@ -128,8 +160,13 @@ internal sealed class ConsoleChat(
 
     private static void WriteBanner()
     {
-        Console.WriteLine("Interactive chat started.");
-        Console.WriteLine("Type your message and press Enter.");
-        Console.WriteLine("Type 'exit' or 'quit' to close the application.");
+        var rule = new Rule("[bold white]Interactive Chat[/]");
+        rule.Justification = Justify.Left;
+        AnsiConsole.Write(rule);
+
+        AnsiConsole.Write(new Text("Type your message and press Enter.", BannerStyle));
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Text("Type 'exit' or 'quit' to close the application.", BannerStyle));
+        AnsiConsole.WriteLine();
     }
 }

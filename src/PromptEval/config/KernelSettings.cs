@@ -1,10 +1,14 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace PromptEval.Config;
 
 internal class KernelSettings
 {
+    public const string SectionName = "KernelSettings";
+
     [JsonPropertyName("serviceType")]
+    [Required]
     public string ServiceType { get; set; } = string.Empty;
 
     [JsonPropertyName("serviceId")]
@@ -14,6 +18,7 @@ internal class KernelSettings
     public string DeploymentId { get; set; } = string.Empty;
 
     [JsonPropertyName("modelId")]
+    [Required]
     public string ModelId { get; set; } = string.Empty;
 
     [JsonPropertyName("endpoint")]

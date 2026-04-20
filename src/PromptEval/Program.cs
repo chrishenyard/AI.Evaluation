@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using PromptEval;
+using PromptEval.config;
 using PromptEval.Config;
 using Serilog;
 
@@ -62,9 +63,14 @@ public class Program
                 {
                     services
                         .AddOptions<KernelSettings>()
-                        .Bind(context.Configuration.GetSection("KernelSettings"))
-                        .Validate(settings => !string.IsNullOrWhiteSpace(settings.ServiceType), "KernelSettings:ServiceType is required.")
-                        .Validate(settings => !string.IsNullOrWhiteSpace(settings.ModelId), "KernelSettings:ModelId is required.")
+                        .BindConfiguration(KernelSettings.SectionName)
+                        .ValidateDataAnnotations()
+                        .ValidateOnStart();
+
+                    services
+                        .AddOptions<AppSettings>()
+                        .BindConfiguration(AppSettings.SectionName)
+                        .ValidateDataAnnotations()
                         .ValidateOnStart();
 
                     services.AddSingleton(sp =>

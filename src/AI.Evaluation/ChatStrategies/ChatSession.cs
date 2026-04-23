@@ -14,6 +14,8 @@ namespace PromptEval.ChatStrategies;
 /// </summary>
 internal class ChatSession
 {
+    private const int MaxMessagesAfterSystem = 20;
+
     public static async Task ExecuteChatSessionAsync(
         Kernel kernel,
         IHostApplicationLifetime lifetime,
@@ -34,12 +36,8 @@ internal class ChatSession
                 AnsiConsole.WriteLine();
                 AnsiConsole.Write(new Markup("[bold cyan]User > [/]"));
 
-                var userInput = Console.ReadLine();
-
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    break;
-                }
+                // Cancellation-aware input (avoids blocking on shutdown).
+                var userInput = await Console.In.ReadLineAsync(cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(userInput))
                 {
@@ -57,6 +55,7 @@ internal class ChatSession
                 }
 
                 chatMessages.AddUserMessage(userInput);
+                TrimChatHistory(chatMessages, MaxMessagesAfterSystem);
 
                 var assistantText = new StringBuilder();
                 string? firstChunk = null;
@@ -108,12 +107,17 @@ internal class ChatSession
 
                     AnsiConsole.WriteLine();
                     chatMessages.AddAssistantMessage(assistantText.ToString());
+                    TrimChatHistory(chatMessages, MaxMessagesAfterSystem);
                 }
                 else
                 {
                     AnsiConsole.Write(new Text("(No response)", SpectreConsole.InfoStyle));
                     AnsiConsole.WriteLine();
                     logger.LogWarning("The assistant returned no content.");
+
+                    // Keep turn structure consistent.
+                    chatMessages.AddAssistantMessage(string.Empty);
+                    TrimChatHistory(chatMessages, MaxMessagesAfterSystem);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -130,6 +134,16 @@ internal class ChatSession
 
                 logger.LogError(ex, "Unhandled exception in chat loop.");
             }
+        }
+    }
+
+    private static void TrimChatHistory(ChatHistory chatMessages, int maxMessagesAfterSystem)
+    {
+        const int systemMessagesToKeep = 1;
+
+        while (chatMessages.Count > systemMessagesToKeep + maxMessagesAfterSystem)
+        {
+            chatMessages.RemoveAt(systemMessagesToKeep);
         }
     }
 }

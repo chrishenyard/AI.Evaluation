@@ -31,6 +31,7 @@ internal class ChatSession
         var chatMessages = CreateInitializedHistory();
         var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
+        SpectreConsole.DisplayTitle();
         SpectreConsole.WriteBanner();
         AnsiConsole.Write(new Text(
             $"Token limit: {MaxContextTokens:n0}. If usage reaches {(int)(ResetThresholdRatio * 100)}% of max, history will be reset.",

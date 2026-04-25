@@ -31,4 +31,9 @@ internal static class SpectreConsole
         AnsiConsole.Write(new Text("Type 'reset' to clear chat history.", SpectreConsole.BannerStyle));
         AnsiConsole.WriteLine();
     }
+
+    public static void DisplayTitle(string title = "LLM Eval")
+    {
+        AnsiConsole.Write(new FigletText(title).Centered().Color(Color.Purple));
+    }
 }

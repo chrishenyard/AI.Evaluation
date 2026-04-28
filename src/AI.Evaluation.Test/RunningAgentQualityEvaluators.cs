@@ -1,8 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
-
-using AI.Evaluation.Test.Setup;
+﻿using AI.Evaluation.Test.Setup;
 using AwesomeAssertions;
 using AwesomeAssertions.Execution;
 using Microsoft.Extensions.AI;
@@ -32,7 +28,7 @@ public partial class ReportingEvaluation
             tags: GetTags());
 
     [TestMethod]
-    public async Task Example11_RunningAgentQualityEvaluators()
+    public async Task RunningAgentQualityEvaluators()
     {
         /// This example demonstrates how to run agent quality evaluators (such as
         /// <see cref="ToolCallAccuracyEvaluator"/>, <see cref="TaskAdherenceEvaluator"/>, and

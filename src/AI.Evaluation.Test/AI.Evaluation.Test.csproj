@@ -20,8 +20,4 @@
     <PackageReference Include="OllamaSharp" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Evaluators\" />
-  </ItemGroup>
-
 </Project>

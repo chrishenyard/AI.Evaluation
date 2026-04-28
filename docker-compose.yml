@@ -9,9 +9,9 @@ services:
       - OLLAMA_KEEP_ALIVE=24h
       - OLLAMA_MAX_LOADED_MODELS=1
     volumes:
-      - prompt_eval_ollama:/root/.ollama
+      - ai_evaluation_ollama:/root/.ollama
     networks:
-      - prompt_eval_network
+      - ai_evaluation_network
     restart: always
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -35,19 +35,19 @@ services:
       - ENV=dev
       - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
-      - prompt_eval_open-webui:/app/backend/data
+      - ai_evaluation_open-webui:/app/backend/data
     depends_on:
       - ollama
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - prompt_eval_network
+      - ai_evaluation_network
     restart: always
 
 networks:
-  prompt_eval_network:
+  ai_evaluation_network:
     driver: bridge
 
 volumes:
-  prompt_eval_ollama:
-  prompt_eval_open-webui:
+  ai_evaluation_ollama:
+  ai_evaluation_open-webui:
